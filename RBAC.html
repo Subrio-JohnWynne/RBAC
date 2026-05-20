@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RBAC System — INFOSEC32</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #00e5a0;
+    --accent2: #ff6b35;
+    --accent3: #5b8cff;
+    --text: #e8e8f0;
+    --text-muted: #6b6b85;
+    --admin: #ff6b35;
+    --staff: #5b8cff;
+    --guest: #00e5a0;
+    --danger: #ff4757;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── GRID BG ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── PAGES ── */
+  .page { display: none; position: relative; z-index: 1; }
+  .page.active { display: block; }
+
+  /* ── AUTH PAGE ── */
+  #auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    width: 100%;
+    max-width: 440px;
+    overflow: hidden;
+    animation: slideUp 0.5s ease;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .auth-header {
+    padding: 2rem 2rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(0,229,160,0.05), transparent);
+  }
+
+  .auth-logo {
+    font-family: var(--font-head);
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+  }
+
+  .auth-logo span { color: var(--text-muted); font-weight: 400; }
+
+  .auth-subtitle {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 0.3rem;
+  }
+
+  .auth-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .auth-tab {
+    flex: 1;
+    padding: 0.85rem;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .auth-tab.active {
+    color: var(--accent);
+    background: rgba(0,229,160,0.04);
+  }
+
+  .auth-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  .auth-body { padding: 2rem; }
+
+  .form-group { margin-bottom: 1.2rem; }
+
+  .form-label {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .form-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    padding: 0.75rem 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-input:focus { border-color: var(--accent); }
+
+  .form-select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    padding: 0.75rem 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+    cursor: pointer;
+  }
+
+  .form-select:focus { border-color: var(--accent); }
+  .form-select option { background: var(--surface); }
+
+  .btn {
+    width: 100%;
+    padding: 0.85rem;
+    border: none;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .btn-primary:hover { background: #00ffb3; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-danger {
+    background: var(--danger);
+    color: #fff;
+    width: auto;
+    padding: 0.5rem 1rem;
+    font-size: 0.72rem;
+  }
+
+  .btn-sm {
+    width: auto;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.68rem;
+  }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  .auth-error {
+    background: rgba(255,71,87,0.1);
+    border: 1px solid rgba(255,71,87,0.3);
+    color: #ff4757;
+    padding: 0.7rem 1rem;
+    font-size: 0.78rem;
+    border-radius: 2px;
+    margin-bottom: 1rem;
+    display: none;
+  }
+
+  .auth-error.show { display: block; }
+
+  /* ── DASHBOARD ── */
+  #dashboard-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 60px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .topbar-brand {
+    font-family: var(--font-head);
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: -0.01em;
+    color: var(--accent);
+  }
+
+  .topbar-brand span { color: var(--text-muted); font-weight: 400; font-size: 0.85rem; }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .role-badge {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.7rem;
+    border-radius: 2px;
+    font-weight: 500;
+  }
+
+  .role-badge.admin { background: rgba(255,107,53,0.15); color: var(--admin); border: 1px solid rgba(255,107,53,0.3); }
+  .role-badge.staff { background: rgba(91,140,255,0.15); color: var(--staff); border: 1px solid rgba(91,140,255,0.3); }
+  .role-badge.guest { background: rgba(0,229,160,0.12); color: var(--guest); border: 1px solid rgba(0,229,160,0.25); }
+
+  .user-info {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .logout-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.35rem 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+
+  .logout-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* LAYOUT */
+  .dashboard-layout {
+    display: flex;
+    flex: 1;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 0;
+    flex-shrink: 0;
+  }
+
+  .sidebar-section {
+    padding: 0 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .sidebar-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 2px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+    margin-bottom: 2px;
+  }
+
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); background: rgba(0,229,160,0.06); border-color: rgba(0,229,160,0.15); }
+
+  .nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+
+  /* MAIN CONTENT */
+  .main-content {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+  }
+
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.3s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .panel-header {
+    margin-bottom: 2rem;
+  }
+
+  .panel-title {
+    font-family: var(--font-head);
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .panel-subtitle {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 0.4rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* STAT CARDS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat-card.accent1::before { background: var(--accent); }
+  .stat-card.accent2::before { background: var(--accent2); }
+  .stat-card.accent3::before { background: var(--accent3); }
+  .stat-card.accent4::before { background: #c084fc; }
+
+  .stat-value {
+    font-family: var(--font-head);
+    font-size: 2.2rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 0.3rem;
+  }
+
+  .stat-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* TABLES */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table-title {
+    font-family: var(--font-head);
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    padding: 0.65rem 1.25rem;
+    text-align: left;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.01);
+    font-weight: 400;
+  }
+
+  td {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.82rem;
+    border-bottom: 1px solid rgba(42,42,58,0.5);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.015); }
+
+  .td-email { color: var(--text-muted); font-size: 0.75rem; }
+  .td-time { color: var(--text-muted); font-size: 0.72rem; }
+
+  /* LOG ENTRIES */
+  .log-list { max-height: 420px; overflow-y: auto; }
+
+  .log-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid rgba(42,42,58,0.4);
+    font-size: 0.78rem;
+    transition: background 0.1s;
+  }
+
+  .log-entry:hover { background: rgba(255,255,255,0.015); }
+
+  .log-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-top: 0.35rem;
+    flex-shrink: 0;
+  }
+
+  .log-dot.login { background: var(--accent); }
+  .log-dot.logout { background: var(--text-muted); }
+  .log-dot.action { background: var(--accent3); }
+  .log-dot.error { background: var(--danger); }
+  .log-dot.register { background: #c084fc; }
+
+  .log-meta { color: var(--text-muted); font-size: 0.68rem; margin-top: 0.2rem; }
+
+  /* ACCESS DENIED */
+  .access-denied {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+  }
+
+  .access-denied-icon { font-size: 3rem; margin-bottom: 1rem; }
+  .access-denied h3 {
+    font-family: var(--font-head);
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--danger);
+    margin-bottom: 0.5rem;
+  }
+
+  .access-denied p { font-size: 0.82rem; color: var(--text-muted); }
+
+  /* NOTICE */
+  .notice {
+    background: rgba(0,229,160,0.06);
+    border: 1px solid rgba(0,229,160,0.2);
+    border-radius: 2px;
+    padding: 1rem 1.25rem;
+    font-size: 0.8rem;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    width: 100%;
+    max-width: 420px;
+    padding: 2rem;
+    animation: slideUp 0.3s ease;
+  }
+
+  .modal-title {
+    font-family: var(--font-head);
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+  }
+
+  /* LOADING */
+  .loading {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .loading span {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: bounce 0.8s ease infinite;
+  }
+
+  .loading span:nth-child(2) { animation-delay: 0.15s; }
+  .loading span:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* EMPTY STATE */
+  .empty-state {
+    padding: 3rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  /* INFO CARD */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 1.25rem;
+  }
+
+  .info-card-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+  }
+
+  .info-card-value {
+    font-family: var(--font-head);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  /* TOAST */
+  .toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 0.75rem 1.1rem;
+    font-size: 0.78rem;
+    animation: toastIn 0.3s ease;
+    max-width: 300px;
+  }
+
+  .toast.success { border-left: 3px solid var(--accent); }
+  .toast.error { border-left: 3px solid var(--danger); }
+  .toast.info { border-left: 3px solid var(--accent3); }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .sidebar { width: 180px; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .info-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 600px) {
+    .sidebar { display: none; }
+    .topbar { padding: 0 1rem; }
+    .main-content { padding: 1.25rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ AUTH PAGE ═══════════════════ -->
+<div id="auth-page" class="page active">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">RBAC<span>sys</span></div>
+      <div class="auth-subtitle">Role-Based Access Control · INFOSEC32</div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Login</button>
+      <button class="auth-tab" onclick="switchTab('register')">Register</button>
+    </div>
+    <div class="auth-body">
+      <div class="auth-error" id="auth-error"></div>
+
+      <!-- LOGIN FORM -->
+      <div id="login-form">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-input" id="login-email" placeholder="user@example.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" id="login-password" placeholder="••••••••" />
+        </div>
+        <button class="btn btn-primary" onclick="handleLogin()">
+          <span id="login-btn-text">Access System</span>
+        </button>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="register-form" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" class="form-input" id="reg-name" placeholder="Juan dela Cruz" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-input" id="reg-email" placeholder="user@example.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" id="reg-password" placeholder="Min. 6 characters" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Request Role</label>
+          <select class="form-select" id="reg-role">
+            <option value="guest">Guest — View only access</option>
+            <option value="staff">Staff — Operational access</option>
+            <option value="admin">Admin — Full system control</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="handleRegister()">
+          <span id="reg-btn-text">Create Account</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ DASHBOARD PAGE ═══════════════════ -->
+<div id="dashboard-page" class="page">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-brand">RBAC<span>sys · INFOSEC32</span></div>
+    <div class="topbar-right">
+      <span class="user-info" id="topbar-email"></span>
+      <span class="role-badge" id="topbar-role-badge"></span>
+      <button class="logout-btn" onclick="handleLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="dashboard-layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Navigation</div>
+        <div class="nav-item active" onclick="showPanel('overview')" id="nav-overview">
+          <span class="nav-icon">◈</span> Overview
+        </div>
+        <div class="nav-item" onclick="showPanel('profile')" id="nav-profile">
+          <span class="nav-icon">○</span> My Profile
+        </div>
+        <div class="nav-item" onclick="showPanel('resources')" id="nav-resources">
+          <span class="nav-icon">◻</span> Resources
+        </div>
+        <!-- STAFF + ADMIN -->
+        <div class="nav-item" onclick="showPanel('reports')" id="nav-reports" style="display:none">
+          <span class="nav-icon">◈</span> Reports
+        </div>
+        <!-- ADMIN ONLY -->
+        <div class="nav-item" onclick="showPanel('users')" id="nav-users" style="display:none">
+          <span class="nav-icon">◈</span> Users
+        </div>
+        <div class="nav-item" onclick="showPanel('logs')" id="nav-logs" style="display:none">
+          <span class="nav-icon">◈</span> Activity Logs
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main-content">
+
+      <!-- OVERVIEW PANEL -->
+      <div class="panel active" id="panel-overview">
+        <div class="panel-header">
+          <div class="panel-title">Overview</div>
+          <div class="panel-subtitle" id="overview-greeting">Welcome back</div>
+        </div>
+        <div class="stats-grid" id="stats-grid">
+          <!-- populated by JS -->
+        </div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title">Recent Activity</span>
+          </div>
+          <div class="log-list" id="recent-activity-list">
+            <div class="empty-state">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROFILE PANEL -->
+      <div class="panel" id="panel-profile">
+        <div class="panel-header">
+          <div class="panel-title">My Profile</div>
+          <div class="panel-subtitle">Your account information</div>
+        </div>
+        <div class="info-grid" id="profile-info">
+          <!-- populated by JS -->
+        </div>
+        <div class="notice">
+          Your role determines which features and data you can access across the system.
+        </div>
+      </div>
+
+      <!-- RESOURCES PANEL -->
+      <div class="panel" id="panel-resources">
+        <div class="panel-header">
+          <div class="panel-title">Resources</div>
+          <div class="panel-subtitle" id="resources-subtitle">Accessible resources for your role</div>
+        </div>
+        <div id="resources-content"><!-- populated by JS --></div>
+      </div>
+
+      <!-- REPORTS PANEL (Staff + Admin) -->
+      <div class="panel" id="panel-reports">
+        <div class="panel-header">
+          <div class="panel-title">Reports</div>
+          <div class="panel-subtitle">Operational data and summaries</div>
+        </div>
+        <div id="reports-access-check"><!-- populated by JS --></div>
+      </div>
+
+      <!-- USERS PANEL (Admin only) -->
+      <div class="panel" id="panel-users">
+        <div class="panel-header">
+          <div class="panel-title">User Management</div>
+          <div class="panel-subtitle">Manage accounts and role assignments</div>
+        </div>
+        <div id="users-access-check"><!-- populated by JS --></div>
+      </div>
+
+      <!-- LOGS PANEL (Admin only) -->
+      <div class="panel" id="panel-logs">
+        <div class="panel-header">
+          <div class="panel-title">Activity Logs</div>
+          <div class="panel-subtitle">Full system audit trail</div>
+        </div>
+        <div id="logs-access-check"><!-- populated by JS --></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ EDIT ROLE MODAL ═══════════════════ -->
+<div class="modal-overlay" id="edit-role-modal">
+  <div class="modal">
+    <div class="modal-title">Change User Role</div>
+    <input type="hidden" id="edit-user-id" />
+    <div class="form-group">
+      <label class="form-label">User</label>
+      <input type="text" class="form-input" id="edit-user-email" readonly />
+    </div>
+    <div class="form-group">
+      <label class="form-label">New Role</label>
+      <select class="form-select" id="edit-role-select">
+        <option value="guest">Guest</option>
+        <option value="staff">Staff</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveRoleChange()" style="width:auto;padding:0.5rem 1.2rem;">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  SUPABASE INIT
+// ══════════════════════════════════════════════
+const SUPABASE_URL = 'https://dpfjnjbpkodyeoxksbdg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRwZmpuamJwa29keWVveGtzYmRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzQyMjEsImV4cCI6MjA5NDA1MDIyMX0.I-XZP5mHNf5yVXCF1oynIgCUvMerniZ0AXmC0kUcQEQ';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let currentProfile = null;
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    await loadUserProfile(session.user);
+  }
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      await loadUserProfile(session.user);
+    } else if (event === 'SIGNED_OUT') {
+      showAuthPage();
+    }
+  });
+}
+
+async function loadUserProfile(user) {
+  currentUser = user;
+  const { data, error } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (error || !data) {
+    // Create profile if missing
+    const { data: np } = await sb.from('profiles').insert({
+      id: user.id,
+      email: user.email,
+      full_name: user.user_metadata?.full_name || user.email.split('@')[0],
+      role: 'guest'
+    }).select().single();
+    currentProfile = np;
+  } else {
+    currentProfile = data;
+  }
+
+  showDashboard();
+}
+
+// ══════════════════════════════════════════════
+//  AUTH UI
+// ══════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register')));
+  document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('auth-error').classList.remove('show');
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+async function handleLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  if (!email || !pass) { showAuthError('Please fill in all fields.'); return; }
+
+  const btn = document.getElementById('login-btn-text');
+  btn.innerHTML = '<span class="loading"><span></span><span></span><span></span></span>';
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.textContent = 'Access System';
+
+  if (error) { showAuthError(error.message); return; }
+  await logActivity(data.user.id, 'login', 'User logged in');
+}
+
+async function handleRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass = document.getElementById('reg-password').value;
+  const role = document.getElementById('reg-role').value;
+  if (!name || !email || !pass) { showAuthError('Please fill in all fields.'); return; }
+  if (pass.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+
+  const btn = document.getElementById('reg-btn-text');
+  btn.innerHTML = '<span class="loading"><span></span><span></span><span></span></span>';
+
+  const { data, error } = await sb.auth.signUp({
+    email, password: pass,
+    options: { data: { full_name: name } }
+  });
+  btn.textContent = 'Create Account';
+
+  if (error) { showAuthError(error.message); return; }
+
+  if (data.user) {
+    await sb.from('profiles').upsert({
+      id: data.user.id,
+      email,
+      full_name: name,
+      role
+    });
+    await logActivity(data.user.id, 'register', `Registered as ${role}`);
+  }
+
+  showToast('Account created! Please verify your email if required.', 'success');
+  switchTab('login');
+}
+
+async function handleLogout() {
+  if (currentUser) await logActivity(currentUser.id, 'logout', 'User logged out');
+  await sb.auth.signOut();
+}
+
+// ══════════════════════════════════════════════
+//  DASHBOARD
+// ══════════════════════════════════════════════
+function showAuthPage() {
+  document.getElementById('auth-page').classList.add('active');
+  document.getElementById('dashboard-page').classList.remove('active');
+  currentUser = null; currentProfile = null;
+}
+
+function showDashboard() {
+  document.getElementById('auth-page').classList.remove('active');
+  document.getElementById('dashboard-page').classList.add('active');
+
+  const role = currentProfile?.role || 'guest';
+  const email = currentProfile?.email || currentUser?.email || '';
+
+  // Topbar
+  document.getElementById('topbar-email').textContent = email;
+  const badge = document.getElementById('topbar-role-badge');
+  badge.textContent = role.toUpperCase();
+  badge.className = `role-badge ${role}`;
+
+  // Sidebar visibility
+  document.getElementById('nav-reports').style.display = (role === 'staff' || role === 'admin') ? 'flex' : 'none';
+  document.getElementById('nav-users').style.display = role === 'admin' ? 'flex' : 'none';
+  document.getElementById('nav-logs').style.display = role === 'admin' ? 'flex' : 'none';
+
+  document.getElementById('overview-greeting').textContent =
+    `Welcome, ${currentProfile?.full_name || email} — ${role} session`;
+
+  loadOverview();
+}
+
+// ══════════════════════════════════════════════
+//  PANELS
+// ══════════════════════════════════════════════
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+  document.getElementById(`nav-${name}`)?.classList.add('active');
+
+  if (name === 'overview') loadOverview();
+  else if (name === 'profile') loadProfile();
+  else if (name === 'resources') loadResources();
+  else if (name === 'reports') loadReports();
+  else if (name === 'users') loadUsers();
+  else if (name === 'logs') loadLogs();
+}
+
+// ══════════════════════════════════════════════
+//  OVERVIEW
+// ══════════════════════════════════════════════
+async function loadOverview() {
+  const role = currentProfile?.role;
+  const grid = document.getElementById('stats-grid');
+
+  let stats = [];
+
+  if (role === 'admin') {
+    const [{ count: uc }, { count: lc }] = await Promise.all([
+      sb.from('profiles').select('*', { count: 'exact', head: true }),
+      sb.from('activity_logs').select('*', { count: 'exact', head: true })
+    ]);
+    const { count: ac } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role','admin');
+    const { count: sc } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role','staff');
+    stats = [
+      { label: 'Total Users', value: uc || 0, cls: 'accent1' },
+      { label: 'Admins', value: ac || 0, cls: 'accent2' },
+      { label: 'Staff', value: sc || 0, cls: 'accent3' },
+      { label: 'Log Entries', value: lc || 0, cls: 'accent4' },
+    ];
+  } else if (role === 'staff') {
+    const { count: lc } = await sb.from('activity_logs').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id);
+    stats = [
+      { label: 'My Sessions', value: lc || 0, cls: 'accent1' },
+      { label: 'Role', value: 'STAFF', cls: 'accent3' },
+    ];
+  } else {
+    stats = [
+      { label: 'Role', value: 'GUEST', cls: 'accent1' },
+      { label: 'Access Level', value: 'READ', cls: 'accent3' },
+    ];
+  }
+
+  grid.innerHTML = stats.map(s => `
+    <div class="stat-card ${s.cls}">
+      <div class="stat-value">${s.value}</div>
+      <div class="stat-label">${s.label}</div>
+    </div>
+  `).join('');
+
+  // Recent activity
+  const query = role === 'admin'
+    ? sb.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(10)
+    : sb.from('activity_logs').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(10);
+
+  const { data: logs } = await query;
+  const list = document.getElementById('recent-activity-list');
+
+  if (!logs || logs.length === 0) {
+    list.innerHTML = '<div class="empty-state">No activity yet.</div>';
+    return;
+  }
+
+  list.innerHTML = logs.map(l => `
+    <div class="log-entry">
+      <div class="log-dot ${l.action_type}"></div>
+      <div>
+        <div>${l.description}</div>
+        <div class="log-meta">${l.user_email || ''} · ${formatTime(l.created_at)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════
+//  PROFILE
+// ══════════════════════════════════════════════
+function loadProfile() {
+  const p = currentProfile;
+  const role = p?.role || 'guest';
+  const roleColor = role === 'admin' ? 'var(--admin)' : role === 'staff' ? 'var(--staff)' : 'var(--guest)';
+
+  document.getElementById('profile-info').innerHTML = `
+    <div class="info-card">
+      <div class="info-card-label">Full Name</div>
+      <div class="info-card-value">${p?.full_name || '—'}</div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-label">Email</div>
+      <div class="info-card-value" style="font-size:0.85rem">${p?.email || '—'}</div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-label">Role</div>
+      <div class="info-card-value" style="color:${roleColor}">${role.toUpperCase()}</div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-label">User ID</div>
+      <div class="info-card-value" style="font-size:0.7rem;word-break:break-all">${p?.id || '—'}</div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════
+//  RESOURCES
+// ══════════════════════════════════════════════
+function loadResources() {
+  const role = currentProfile?.role;
+  const container = document.getElementById('resources-content');
+
+  const allResources = [
+    { id: 1, name: 'Public Documentation', desc: 'System documentation and user guides.', access: ['guest','staff','admin'], icon: '📄' },
+    { id: 2, name: 'Operational Reports', desc: 'Monthly performance and activity reports.', access: ['staff','admin'], icon: '📊' },
+    { id: 3, name: 'User Database', desc: 'Full user list and role assignments.', access: ['admin'], icon: '🗄️' },
+    { id: 4, name: 'System Configuration', desc: 'Core system settings and parameters.', access: ['admin'], icon: '⚙️' },
+    { id: 5, name: 'Staff Notices', desc: 'Internal notices and announcements.', access: ['staff','admin'], icon: '📌' },
+  ];
+
+  container.innerHTML = `
+    <div class="table-wrap">
+      <div class="table-header"><span class="table-title">Available Resources</span></div>
+      <table>
+        <thead><tr><th>Resource</th><th>Description</th><th>Access Level</th><th>Action</th></tr></thead>
+        <tbody>
+          ${allResources.map(r => {
+            const canAccess = r.access.includes(role);
+            return `
+              <tr>
+                <td>${r.icon} ${r.name}</td>
+                <td class="td-email">${r.desc}</td>
+                <td>${r.access.map(a => `<span class="role-badge ${a}" style="font-size:0.6rem;padding:0.2rem 0.5rem;">${a}</span>`).join(' ')}</td>
+                <td>
+                  ${canAccess
+                    ? `<button class="btn btn-primary btn-sm" style="width:auto;padding:0.35rem 0.9rem;" onclick="viewResource('${r.name}')">View</button>`
+                    : `<button class="btn btn-sm btn-outline" disabled style="opacity:0.4;cursor:not-allowed">Restricted</button>`
+                  }
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function viewResource(name) {
+  await logActivity(currentUser.id, 'action', `Accessed resource: ${name}`);
+  showToast(`Opened: ${name}`, 'info');
+}
+
+// ══════════════════════════════════════════════
+//  REPORTS (Staff + Admin)
+// ══════════════════════════════════════════════
+async function loadReports() {
+  const role = currentProfile?.role;
+  const container = document.getElementById('reports-access-check');
+
+  if (role === 'guest') {
+    container.innerHTML = accessDenied('Staff or Admin role required to view reports.');
+    return;
+  }
+
+  await logActivity(currentUser.id, 'action', 'Viewed reports panel');
+
+  const { data: logs } = await sb
+    .from('activity_logs')
+    .select('action_type')
+    .gte('created_at', new Date(Date.now() - 7*24*60*60*1000).toISOString());
+
+  const counts = { login: 0, logout: 0, action: 0, register: 0 };
+  (logs || []).forEach(l => { if (counts[l.action_type] !== undefined) counts[l.action_type]++; });
+
+  container.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card accent1"><div class="stat-value">${counts.login}</div><div class="stat-label">Logins (7d)</div></div>
+      <div class="stat-card accent2"><div class="stat-value">${counts.action}</div><div class="stat-label">Actions (7d)</div></div>
+      <div class="stat-card accent3"><div class="stat-value">${counts.register}</div><div class="stat-label">Registrations (7d)</div></div>
+      <div class="stat-card accent4"><div class="stat-value">${counts.logout}</div><div class="stat-label">Logouts (7d)</div></div>
+    </div>
+    <div class="notice">Report data is based on the past 7 days of system activity.</div>
+  `;
+}
+
+// ══════════════════════════════════════════════
+//  USERS (Admin only)
+// ══════════════════════════════════════════════
+async function loadUsers() {
+  const role = currentProfile?.role;
+  const container = document.getElementById('users-access-check');
+
+  if (role !== 'admin') {
+    container.innerHTML = accessDenied('Administrator role required.');
+    return;
+  }
+
+  const { data: users, error } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
+
+  if (error) { container.innerHTML = `<div class="notice">Error loading users: ${error.message}</div>`; return; }
+
+  container.innerHTML = `
+    <div class="table-wrap">
+      <div class="table-header">
+        <span class="table-title">All Users (${users.length})</span>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${users.map(u => `
+            <tr>
+              <td>${u.full_name || '—'}</td>
+              <td class="td-email">${u.email}</td>
+              <td><span class="role-badge ${u.role}">${u.role}</span></td>
+              <td class="td-time">${formatDate(u.created_at)}</td>
+              <td>
+                <button class="btn btn-primary btn-sm" style="width:auto;padding:0.35rem 0.9rem;"
+                  onclick="openEditRole('${u.id}','${u.email}','${u.role}')">Edit Role</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function openEditRole(id, email, role) {
+  document.getElementById('edit-user-id').value = id;
+  document.getElementById('edit-user-email').value = email;
+  document.getElementById('edit-role-select').value = role;
+  document.getElementById('edit-role-modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('edit-role-modal').classList.remove('show');
+}
+
+async function saveRoleChange() {
+  const id = document.getElementById('edit-user-id').value;
+  const newRole = document.getElementById('edit-role-select').value;
+  const email = document.getElementById('edit-user-email').value;
+
+  const { error } = await sb.from('profiles').update({ role: newRole }).eq('id', id);
+
+  if (error) { showToast('Failed to update role: ' + error.message, 'error'); return; }
+
+  await logActivity(currentUser.id, 'action', `Changed role of ${email} to ${newRole}`);
+  showToast(`Role updated to ${newRole}`, 'success');
+  closeModal();
+  loadUsers();
+}
+
+// ══════════════════════════════════════════════
+//  LOGS (Admin only)
+// ══════════════════════════════════════════════
+async function loadLogs() {
+  const role = currentProfile?.role;
+  const container = document.getElementById('logs-access-check');
+
+  if (role !== 'admin') {
+    container.innerHTML = accessDenied('Administrator role required.');
+    return;
+  }
+
+  const { data: logs } = await sb
+    .from('activity_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  container.innerHTML = `
+    <div class="table-wrap">
+      <div class="table-header">
+        <span class="table-title">Audit Log (last 100)</span>
+      </div>
+      <div class="log-list">
+        ${(logs || []).length === 0
+          ? '<div class="empty-state">No logs yet.</div>'
+          : (logs || []).map(l => `
+            <div class="log-entry">
+              <div class="log-dot ${l.action_type}"></div>
+              <div>
+                <div>${l.description}</div>
+                <div class="log-meta">${l.user_email || l.user_id?.substring(0,8) || 'system'} · ${formatTime(l.created_at)}</div>
+              </div>
+            </div>
+          `).join('')
+        }
+      </div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════
+async function logActivity(userId, actionType, description) {
+  try {
+    await sb.from('activity_logs').insert({
+      user_id: userId,
+      user_email: currentProfile?.email || currentUser?.email || '',
+      action_type: actionType,
+      description
+    });
+  } catch(e) { /* silent */ }
+}
+
+function accessDenied(msg) {
+  return `
+    <div class="access-denied">
+      <div class="access-denied-icon">🔒</div>
+      <h3>Access Denied</h3>
+      <p>${msg}</p>
+    </div>
+  `;
+}
+
+function formatTime(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString('en-PH', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function formatDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-PH', { dateStyle: 'medium' });
+}
+
+function showToast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ══════════════════════════════════════════════
+//  BOOTSTRAP
+// ══════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
