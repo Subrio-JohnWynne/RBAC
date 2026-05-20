@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RBAC System — INFOSEC32</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<div id="auth-screen" class="screen active">
+  <div class="scanline"></div>
+  <div class="grid-bg"></div>
+
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-box">
+        <span class="logo-icon">⬡</span>
+      </div>
+      <h1>RBAC<span class="accent">.</span>SYS</h1>
+      <p class="subtitle">Role-Based Access Control // INFOSEC32</p>
+    </div>
+
+    
+    <div class="tab-switcher">
+      <button class="tab active" id="tab-login" onclick="switchTab('login')">LOGIN</button>
+      <button class="tab" id="tab-register" onclick="switchTab('register')">REGISTER</button>
+    </div>
+
+    
+    <div id="form-login" class="auth-form">
+      <div class="input-group">
+        <label>EMAIL</label>
+        <input type="email" id="login-email" placeholder="user@domain.com" autocomplete="email"/>
+      </div>
+      <div class="input-group">
+        <label>PASSWORD</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+      <div id="login-error" class="error-msg"></div>
+      <button class="btn-primary" onclick="handleLogin()">
+        <span class="btn-text">AUTHENTICATE</span>
+        <span class="btn-loader hidden">▣ VERIFYING...</span>
+      </button>
+    </div>
+
+    
+    <div id="form-register" class="auth-form hidden">
+      <div class="input-group">
+        <label>FULL NAME</label>
+        <input type="text" id="reg-name" placeholder="Juan dela Cruz"/>
+      </div>
+      <div class="input-group">
+        <label>EMAIL</label>
+        <input type="email" id="reg-email" placeholder="user@domain.com"/>
+      </div>
+      <div class="input-group">
+        <label>PASSWORD</label>
+        <input type="password" id="reg-password" placeholder="Min. 6 characters"/>
+      </div>
+      <div class="input-group">
+        <label>ROLE</label>
+        <select id="reg-role">
+          <option value="viewer">VIEWER — Read only access</option>
+          <option value="editor">EDITOR — Can modify records</option>
+          <option value="admin">ADMIN — Full system access</option>
+        </select>
+      </div>
+      <div id="reg-error" class="error-msg"></div>
+      <div id="reg-success" class="success-msg"></div>
+      <button class="btn-primary" onclick="handleRegister()">
+        <span class="btn-text">CREATE ACCOUNT</span>
+        <span class="btn-loader hidden">▣ CREATING...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="dashboard-screen" class="screen hidden">
+  <div class="scanline"></div>
+
+  
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">⬡</span>
+      <span>RBAC.SYS</span>
+    </div>
+
+    <div class="user-badge">
+      <div class="avatar" id="sidebar-avatar">U</div>
+      <div>
+        <div id="sidebar-name" class="user-name">Loading...</div>
+        <div id="sidebar-role" class="role-badge">--</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item active" onclick="showPanel('dashboard')">
+        <span class="nav-icon">◈</span> DASHBOARD
+      </a>
+      <a class="nav-item" onclick="showPanel('users')" id="nav-users">
+        <span class="nav-icon">◉</span> USER MANAGEMENT
+      </a>
+      <a class="nav-item" onclick="showPanel('content')" id="nav-content">
+        <span class="nav-icon">◧</span> CONTENT
+      </a>
+      <a class="nav-item" onclick="showPanel('logs')" id="nav-logs">
+        <span class="nav-icon">▤</span> ACTIVITY LOGS
+      </a>
+    </nav>
+
+    <button class="btn-logout" onclick="handleLogout()">⏻ LOGOUT</button>
+  </aside>
+
+  
+  <main class="main-content">
+
+    
+    <div id="panel-dashboard" class="panel active">
+      <div class="panel-header">
+        <h2>SYSTEM DASHBOARD</h2>
+        <div class="status-dot"></div>
+        <span class="status-text">ONLINE</span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">TOTAL USERS</div>
+          <div class="stat-value" id="stat-users">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">YOUR ROLE</div>
+          <div class="stat-value" id="stat-role">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">LOG ENTRIES</div>
+          <div class="stat-value" id="stat-logs">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">SESSION</div>
+          <div class="stat-value" id="stat-session">ACTIVE</div>
+        </div>
+      </div>
+
+      <div class="role-matrix">
+        <h3>ROLE PERMISSIONS MATRIX</h3>
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th>PERMISSION</th>
+              <th>VIEWER</th>
+              <th>EDITOR</th>
+              <th>ADMIN</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>View Content</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>Edit Content</td><td class="no">✗</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>View Logs</td><td class="no">✗</td><td class="no">✗</td><td class="yes">✓</td></tr>
+            <tr><td>Manage Users</td><td class="no">✗</td><td class="no">✗</td><td class="yes">✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    
+    <div id="panel-users" class="panel hidden">
+      <div class="panel-header">
+        <h2>USER MANAGEMENT</h2>
+        <span class="badge-admin">ADMIN ONLY</span>
+      </div>
+      <div id="users-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>NAME</th>
+              <th>EMAIL</th>
+              <th>ROLE</th>
+              <th>JOINED</th>
+              <th>ACTION</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr><td colspan="5" class="loading-row">Loading users...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    
+    <div id="panel-content" class="panel hidden">
+      <div class="panel-header">
+        <h2>CONTENT PANEL</h2>
+        <button class="btn-small" id="btn-add-content" onclick="showAddContent()" style="display:none">+ ADD RECORD</button>
+      </div>
+
+      <div id="add-content-form" class="inline-form hidden">
+        <input type="text" id="content-title" placeholder="Record title..."/>
+        <textarea id="content-body" placeholder="Record content..." rows="3"></textarea>
+        <div>
+          <button class="btn-primary small" onclick="addContent()">SAVE</button>
+          <button class="btn-ghost small" onclick="hideAddContent()">CANCEL</button>
+        </div>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr><th>TITLE</th><th>BODY</th><th>CREATED BY</th><th>DATE</th><th>ACTION</th></tr>
+        </thead>
+        <tbody id="content-tbody">
+          <tr><td colspan="5" class="loading-row">Loading content...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    
+    <div id="panel-logs" class="panel hidden">
+      <div class="panel-header">
+        <h2>ACTIVITY LOGS</h2>
+        <span class="badge-admin">ADMIN ONLY</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr><th>TIME</th><th>USER</th><th>ACTION</th><th>DETAILS</th></tr>
+        </thead>
+        <tbody id="logs-tbody">
+          <tr><td colspan="4" class="loading-row">Loading logs...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+
+<div id="role-modal" class="modal hidden">
+  <div class="modal-box">
+    <h3>CHANGE USER ROLE</h3>
+    <p id="modal-user-name"></p>
+    <select id="modal-role-select">
+      <option value="viewer">VIEWER</option>
+      <option value="editor">EDITOR</option>
+      <option value="admin">ADMIN</option>
+    </select>
+    <div class="modal-btns">
+      <button class="btn-primary small" onclick="confirmRoleChange()">CONFIRM</button>
+      <button class="btn-ghost small" onclick="closeModal()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body>
+</html>
